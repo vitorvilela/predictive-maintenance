@@ -9,8 +9,12 @@ from neptunecontrib.api.table import log_table
 class Analysis:
 
         def __init__(self, dataset):
+                """
+                Info
+                """
+
                 self.dataset = dataset
-                self.assets_quantity = self.get_assets_quantity()
+                self.n_assets = self.get_assets_quantity()
                                 
 
         def get_assets_quantity(self):
@@ -19,8 +23,8 @@ class Analysis:
                 Returns: an integer
                 """
                 df = self.dataset.dataframe
-                assets_quantity = len(self.dataset.assets)
-                return assets_quantity
+                n_assets = len(self.dataset.assets)
+                return n_assets
 
         def get_assets_last_cycle_array(self):
                 """
@@ -71,6 +75,9 @@ class Analysis:
                 if type=='mean':
                         dummy_precision_array = 1. - np.abs(assets_last_cycle_array -  self.assets_last_cycle_dict['mean']) / self.assets_last_cycle_dict['mean']
                         dummy_mean_precision = np.mean(dummy_precision_array)
+                elif type=='min':
+                        dummy_precision_array = 1. - np.abs(assets_last_cycle_array -  self.assets_last_cycle_dict['min']) / self.assets_last_cycle_dict['min']
+                        dummy_mean_precision = np.mean(dummy_precision_array)                
                 else:
                         print(f'In get_dummy_precision(), there is not the input ({type}) available.')
                         sys.exit(1)  
