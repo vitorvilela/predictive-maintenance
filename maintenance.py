@@ -74,8 +74,8 @@ def main(args):
         test_analysis = analysis.Analysis(test_dataset)
 
         # Get the number of assets in each analysis (based on the respective dataset)
-        train_assets_quantity = train_analysis.get_assets_quantity()
-        test_assets_quantity = test_analysis.get_assets_quantity()
+        train_n_assets = train_analysis.get_assets_quantity()
+        test_n_assets = test_analysis.get_assets_quantity()
 
         # Get the array containing the last cycle of each asset
         train_assets_last_cycles_array = train_analysis.get_assets_last_cycle_array()
@@ -83,7 +83,10 @@ def main(args):
 
         #
         dummy_mean_precision = train_analysis.get_dummy_mean_precision(type='mean')
-        print(f'dummy_mean_precision: {dummy_mean_precision}')
+        print(f'dummy_mean_precision based on mean failure cycle: {dummy_mean_precision}')
+
+        dummy_mean_precision = train_analysis.get_dummy_mean_precision(type='min')
+        print(f'dummy_mean_precision based on min failure cycle: {dummy_mean_precision}')
        
         # 
         train_analysis.log_violinchart(train_assets_last_cycles_array, log_category='target-charts', plot_name='failure-cycles')

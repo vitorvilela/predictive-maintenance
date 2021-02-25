@@ -3,6 +3,49 @@ import numpy as np
 import pandas as pd
 import os
 
+
+
+
+
+class TransformedDataset:
+
+        # Current working directory. In case we export/import transformed dataset csv files.
+        cwd = os.getcwd()
+
+        #
+        origin_cycle_period = 1
+
+        #
+        filter_window_size = 20
+
+        # 
+        n_data_augmentation_for_each_asset = 10
+
+
+        def __init__(self, dataset, origin_selected_head):
+                """
+                origin_selected_head: a tuple containing (selected_settings, selected_sensors) from the origin dataset
+                """
+                
+                self.dataset = dataset
+                self.type = dataset.type
+
+                self.selected_settings = origin_selected_head[0]
+                self.selected_sensors = origin_selected_head[1]
+                self.selected_sensors_time_derivative = ['d{}dt'.format(s) for s in self.selected_sensors]
+
+                # The dataframe_header has the same csv_header
+                csv_header = ['rul', 'data_id', 'monitoring-cycle'] + self.selected_settings + self.selected_sensors + self.selected_sensors_time_derivative
+
+
+
+
+
+
+
+
+
+
 class Dataset:
 
         cwd = os.getcwd()
@@ -10,10 +53,16 @@ class Dataset:
         settings_head = ['setting{}'.format(s) for s in range(1,4)]
         sensors_head = ['sensor{}'.format(s) for s in range(1,22)]
 
-        # Train and test dataset files have the same header
+        # The dataframe_header has the same csv_header
+        # The train and test dataset files have the same header
         csv_header = ['asset_id', 'cycle'] + settings_head + sensors_head
 
         def __init__(self, type):
+                """
+                Info
+                """
+
+                self.type = type
                 self.csv_file_name = 'PM_train.csv' if type=='train' else 'PM_test.csv'
                                
 
@@ -84,3 +133,6 @@ class Dataset:
                 asset_last_cycle = np.max(cycle_array)
 
                 return asset_last_cycle
+
+
+
