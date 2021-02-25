@@ -42,26 +42,28 @@ def main(args):
         log = Neptune()
         log.create_experiment(args)
 
-        # Create and load train and test datasets
+
+        # Create train and test datasets
         train_dataset = dataset.Dataset(type='train')
         test_dataset = dataset.Dataset(type='test')
-        train_dataset.load_dataset_from_csv()
-        test_dataset.load_dataset_from_csv()
+
 
         # Select settings and sensors that matters
         selected_settings = ['setting1', 'setting2']
         selected_sensors = [s for s in train_dataset.sensors_head if s not in ['sensor1', 'sensor5', 'sensor6', 'sensor10', 'sensor16', 'sensor18', 'sensor19']]
-        
+
+
         # Get values of settings and sensors for a specific asset
-        train_row_settings, train_row_sensors = train_dataset.get_settings_and_sensors_for_asset(asset_id=1, 
-                                                                                                 cycle=1, 
-                                                                                                 selected_settings=selected_settings, 
-                                                                                                 selected_sensors=selected_sensors)
+        train_row_settings, train_row_sensors = train_dataset.get_settings_and_sensors_for_asset_and_cycle(asset_id=1, 
+                                                                                                           cycle=1, 
+                                                                                                           selected_settings=selected_settings, 
+                                                                                                           selected_sensors=selected_sensors)
       
-        test_row_settings, test_row_sensors = test_dataset.get_settings_and_sensors_for_asset(asset_id=1, 
-                                                                                              cycle=1, 
-                                                                                              selected_settings=selected_settings, 
-                                                                                              selected_sensors=selected_sensors)
+        test_row_settings, test_row_sensors = test_dataset.get_settings_and_sensors_for_asset_and_cycle(asset_id=1, 
+                                                                                                        cycle=1, 
+                                                                                                        selected_settings=selected_settings, 
+                                                                                                        selected_sensors=selected_sensors)
+
 
         # Get last cycle for a specific asset
         # For the train dataset, it is the failure cycle
@@ -70,28 +72,28 @@ def main(args):
 
 
         # Create train and test analysis
-        train_analysis = analysis.Analysis(train_dataset) 
-        test_analysis = analysis.Analysis(test_dataset)
+        train_analysis = analysis.DatasetAnalysis(train_dataset) 
+        test_analysis = analysis.DatasetAnalysis(test_dataset)
 
-        # Get the number of assets in each analysis (based on the respective dataset)
-        train_n_assets = train_analysis.get_assets_quantity()
-        test_n_assets = test_analysis.get_assets_quantity()
-
+      
         # Get the array containing the last cycle of each asset
-        train_assets_last_cycles_array = train_analysis.get_assets_last_cycle_array()
-        test_assets_last_cycles_array = test_analysis.get_assets_last_cycle_array()
+        train_assets_last_cycles_array = train_dataset.get_assets_last_cycle_array()
+        test_assets_last_cycles_array = test_dataset.get_assets_last_cycle_array()
+
 
         #
         dummy_mean_precision = train_analysis.get_dummy_mean_precision(type='mean')
-        print(f'dummy_mean_precision based on mean failure cycle: {dummy_mean_precision}')
-
+        neptune.log_metric(f'dummy-mean-precision-type-mean', dummy_mean_precision)
+        
         dummy_mean_precision = train_analysis.get_dummy_mean_precision(type='min')
-        print(f'dummy_mean_precision based on min failure cycle: {dummy_mean_precision}')
+        neptune.log_metric(f'dummy-mean-precision-type-min', dummy_mean_precision)
        
+
         # 
+        train_dataset.compute_assets_last_cycle_statistics()
         train_analysis.log_violinchart(train_assets_last_cycles_array, log_category='target-charts', plot_name='failure-cycles')
         train_analysis.log_boxchart(train_assets_last_cycles_array, log_category='target-charts', plot_name='failure-cycles')
-        train_analysis.compute_assets_last_cycle_statistics()
+        
 
         #
         for ss in selected_settings:
@@ -102,9 +104,17 @@ def main(args):
                 
                 train_analysis.log_sensor_failure_value_linechart_for_assets(sensor_name=ss)
        
-                sensor_failure_values_array = train_analysis.get_sensors_last_value_for_assets(sensor_name=ss)
+                sensor_failure_values_array = train_dataset.get_sensors_last_value_for_assets(sensor_name=ss)
                 train_analysis.log_violinchart(sensor_failure_values_array[:, 1], log_category='features-charts', plot_name=f'{ss}-failure-assets')
                 train_analysis.log_boxchart(sensor_failure_values_array[:, 1], log_category='features-charts', plot_name=f'{ss}-failure-assets')
+
+
+        # Create train and test transformed datasets
+        train_transformed_dataset = dataset.TransformedDataset(dataset=train_dataset, selected_settings_sensors_tuple=(selected_settings, selected_sensors))
+        print(train_transformed_dataset.dataframe)
+
+        test_transformed_dataset = dataset.TransformedDataset(dataset=test_dataset, selected_settings_sensors_tuple=(selected_settings, selected_sensors))        
+        print(test_transformed_dataset.dataframe)
 
 
 
