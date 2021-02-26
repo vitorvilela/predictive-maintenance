@@ -7,6 +7,13 @@ from neptunecontrib.api.table import log_table
 
 
 
+
+
+
+
+
+
+
 class Dataset:
 
         cwd = os.getcwd()
@@ -169,6 +176,13 @@ class Dataset:
 
 
 
+
+
+
+
+
+
+
 class TransformedDataset:
 
         # Current working directory. In case we export/import transformed dataset csv files.
@@ -201,7 +215,7 @@ class TransformedDataset:
                 self.selected_sensors_time_derivative = ['ds{}dt'.format(s.split('sensor')[1]) for s in self.selected_sensors]
 
                 # It is used both in the csv file and dataframe
-                self.dataset_header_dict = {'train': ['rul', 'data-id', 'monitoring-cycle'] + self.selected_settings + self.selected_sensors + self.selected_sensors_time_derivative,
+                self.dataset_header_dict = {'train': ['data-id', 'monitoring-cycle'] + self.selected_settings + self.selected_sensors + self.selected_sensors_time_derivative + ['rul'],
                                             'test': ['data-id', 'monitoring-cycle'] + self.selected_settings + self.selected_sensors + self.selected_sensors_time_derivative}
 
                 self.dataset_header = self.dataset_header_dict[self.type]
@@ -210,6 +224,20 @@ class TransformedDataset:
 
                 self.create_dataframe()
 
+
+        def get_feature_array(self, feature_name):
+                """
+                Returns: a numpy array
+                """
+                
+                try:
+                        feature_array = self.dataframe[[feature_name]].values
+                except:
+                        print(f'In get_feature_array(), there is not the column ({feature_name}) in the dataframe.')
+                        sys.exit(1) 
+
+
+                return feature_array        
             
 
         def compute_min_monitoring_cycle(self):
@@ -223,7 +251,6 @@ class TransformedDataset:
                 if self.min_monitoring_cycle - 2*cls.filter_window_size < 1:
                         print(f'In compute_min_monitoring_cycle(), min_monitoring_cycle lesser than allowed value (1)')
                         sys.exit(1)
-
 
 
         def get_max_monitoring_cycle_for_asset(self, asset_id):
@@ -251,9 +278,6 @@ class TransformedDataset:
                         print(f'In pick_monitoring_cycle(), the pick_type={pick_type} is not available. Please use \'random\'.')
                         sys.exit(1)                
                         
-               
-                
-
 
         def get_remaining_useful_life_value(self, asset_id, current_monitoring_cycle):
                 """
@@ -396,7 +420,7 @@ class TransformedDataset:
                                         sensor_and_time_derivative_row.append(dsdt)
       
                                 if self.dataset.type=='train':
-                                        dataframe_rows.append([rul] + [data_id] + [current_monitoring_cycle] + setting_row + sensor_and_time_derivative_row)
+                                        dataframe_rows.append([data_id] + [current_monitoring_cycle] + setting_row + sensor_and_time_derivative_row + [rul])
                                 elif self.dataset.type=='test':        
                                         dataframe_rows.append([data_id] + [current_monitoring_cycle] + setting_row + sensor_and_time_derivative_row)
                                 else:
@@ -409,5 +433,9 @@ class TransformedDataset:
                                 if self.dataset.type=='test': 
                                         break                                   
                 
+                columns = self.dataset_header
                 self.dataframe = pd.DataFrame(np.array(dataframe_rows),
-                                              columns=self.dataset_header)                             
+                                              columns=columns) 
+                
+                # TODO change data-id, monitoring-cycle and rul columns dtype to int 
+                #self.dataframe.astype({columns[0]: 'int32', columns[1]: 'int32', columns[-1]: 'int32'}).dtypes
