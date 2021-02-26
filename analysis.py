@@ -86,7 +86,7 @@ class DatasetAnalysis(Analysis):
                 plt.xlabel('cycle')
                 plt.ylabel(f'{feature_name}')
                 plt.tight_layout()
-                neptune.log_image(f'features-charts', fig, image_name=f'{feature_name}-for-asset-linechart{asset_id}')
+                neptune.log_image(f'{self.dataset.type}-features-charts', fig, image_name=f'{self.dataset.type}-{feature_name}-for-asset-linechart{asset_id}')
                 plt.close(fig)
                 
 
@@ -103,5 +103,5 @@ class DatasetAnalysis(Analysis):
                 plt.xlabel('asset')
                 plt.ylabel(f'{sensor_name}')
                 plt.tight_layout()
-                neptune.log_image(f'features-charts', fig, image_name=f'failure-values-of-{sensor_name}-for-assets-linechart')
+                neptune.log_image(f'{self.dataset.type}-features-charts', fig, image_name=f'{self.dataset.type}-failure-values-of-{sensor_name}-for-assets-linechart')
                 plt.close(fig)

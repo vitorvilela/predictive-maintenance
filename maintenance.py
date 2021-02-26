@@ -75,12 +75,6 @@ def main(args):
         train_analysis = analysis.DatasetAnalysis(train_dataset) 
         test_analysis = analysis.DatasetAnalysis(test_dataset)
 
-      
-        # Get the array containing the last cycle of each asset
-        train_assets_last_cycles_array = train_dataset.get_assets_last_cycle_array()
-        test_assets_last_cycles_array = test_dataset.get_assets_last_cycle_array()
-
-
         #
         dummy_mean_precision = train_analysis.get_dummy_mean_precision(type='mean')
         neptune.log_metric(f'dummy-mean-precision-type-mean', dummy_mean_precision)
@@ -89,31 +83,51 @@ def main(args):
         neptune.log_metric(f'dummy-mean-precision-type-min', dummy_mean_precision)
        
 
+        # Get the array containing the last cycle of each asset
+        train_assets_last_cycles_array = train_dataset.get_assets_last_cycle_array()
+        test_assets_last_cycles_array = test_dataset.get_assets_last_cycle_array()
+
         # 
         train_dataset.compute_assets_last_cycle_statistics()
-        train_analysis.log_violinchart(train_assets_last_cycles_array, log_category='target-charts', plot_name='failure-cycles')
-        train_analysis.log_boxchart(train_assets_last_cycles_array, log_category='target-charts', plot_name='failure-cycles')
+        train_analysis.log_violinchart(train_assets_last_cycles_array, log_category='train-target-charts', plot_name='train-failure-cycles')
+        train_analysis.log_boxchart(train_assets_last_cycles_array, log_category='train-target-charts', plot_name='train-failure-cycles')
         
+        #
+        test_dataset.compute_assets_last_cycle_statistics()
+        test_analysis.log_violinchart(test_assets_last_cycles_array, log_category='test-target-charts', plot_name='test-failure-cycles')
+        test_analysis.log_boxchart(test_assets_last_cycles_array, log_category='test-target-charts', plot_name='test-failure-cycles')
+
+
 
         #
         for ss in selected_settings:
                 train_analysis.log_feature_linechart_for_asset(asset_id=75, feature_name=ss)
-
         for ss in selected_sensors:
-                train_analysis.log_feature_linechart_for_asset(asset_id=75, feature_name=ss)
-                
-                train_analysis.log_sensor_failure_value_linechart_for_assets(sensor_name=ss)
-       
-                sensor_failure_values_array = train_dataset.get_sensors_last_value_for_assets(sensor_name=ss)
-                train_analysis.log_violinchart(sensor_failure_values_array[:, 1], log_category='features-charts', plot_name=f'{ss}-failure-assets')
-                train_analysis.log_boxchart(sensor_failure_values_array[:, 1], log_category='features-charts', plot_name=f'{ss}-failure-assets')
+                train_analysis.log_feature_linechart_for_asset(asset_id=75, feature_name=ss)                
+                train_analysis.log_sensor_failure_value_linechart_for_assets(sensor_name=ss)       
+                train_sensor_failure_values_array = train_dataset.get_sensors_last_value_for_assets(sensor_name=ss)
+                train_analysis.log_violinchart(train_sensor_failure_values_array[:, 1], log_category='train-features-charts', plot_name=f'train-{ss}-failure-assets')
+                train_analysis.log_boxchart(train_sensor_failure_values_array[:, 1], log_category='train-features-charts', plot_name=f'train-{ss}-failure-assets')
+
+        #
+        for ss in selected_settings:
+                test_analysis.log_feature_linechart_for_asset(asset_id=75, feature_name=ss)
+        for ss in selected_sensors:
+                test_analysis.log_feature_linechart_for_asset(asset_id=75, feature_name=ss)                
+                test_analysis.log_sensor_failure_value_linechart_for_assets(sensor_name=ss)       
+                test_sensor_failure_values_array = test_dataset.get_sensors_last_value_for_assets(sensor_name=ss)
+                test_analysis.log_violinchart(test_sensor_failure_values_array[:, 1], log_category='test-features-charts', plot_name=f'test-{ss}-failure-assets')
+                test_analysis.log_boxchart(test_sensor_failure_values_array[:, 1], log_category='test-features-charts', plot_name=f'test-{ss}-failure-assets')
+
 
 
         # Create train and test transformed datasets
         train_transformed_dataset = dataset.TransformedDataset(dataset=train_dataset, selected_settings_sensors_tuple=(selected_settings, selected_sensors))
+        print(f'train_dataset.dataframe has nan: {train_transformed_dataset.dataframe.isnull().values.any()}')
         print(train_transformed_dataset.dataframe)
 
-        test_transformed_dataset = dataset.TransformedDataset(dataset=test_dataset, selected_settings_sensors_tuple=(selected_settings, selected_sensors))        
+        test_transformed_dataset = dataset.TransformedDataset(dataset=test_dataset, selected_settings_sensors_tuple=(selected_settings, selected_sensors))  
+        print(f'test_dataset.dataframe has nan: {train_transformed_dataset.dataframe.isnull().values.any()}')   
         print(test_transformed_dataset.dataframe)
 
 

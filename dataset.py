@@ -143,7 +143,7 @@ class Dataset:
                 values = [item[1] for item in self.assets_last_cycle_dict.items()]
                 self.assets_last_cycle_descriptive_dataframe = pd.DataFrame({'stats': stats, 'values': values})
 
-                log_table('assets-last-cycle-statistics', self.assets_last_cycle_descriptive_dataframe)   
+                log_table(f'{self.type}-assets-last-cycle-statistics', self.assets_last_cycle_descriptive_dataframe)   
 
 
         def get_sensors_last_value_for_assets(self, sensor_name):
@@ -177,7 +177,8 @@ class TransformedDataset:
         #
         origin_cycle_period = 1
 
-        #
+        # It can be necessary to have different filter_window_size for train and test dataset
+        # Because it is not possible a priori to restrict the mininum monitoring cycle at the test dataset
         filter_window_size = 10
 
         #
@@ -197,7 +198,7 @@ class TransformedDataset:
 
                 self.selected_settings = selected_settings_sensors_tuple[0]
                 self.selected_sensors = selected_settings_sensors_tuple[1]
-                self.selected_sensors_time_derivative = ['d{}dt'.format(s) for s in self.selected_sensors]
+                self.selected_sensors_time_derivative = ['ds{}dt'.format(s.split('sensor')[1]) for s in self.selected_sensors]
 
                 # It is used both in the csv file and dataframe
                 self.dataset_header_dict = {'train': ['rul', 'data-id', 'monitoring-cycle'] + self.selected_settings + self.selected_sensors + self.selected_sensors_time_derivative,
@@ -218,7 +219,11 @@ class TransformedDataset:
                 
                 cls = self.__class__
 
-                self.min_monitoring_cycle = self.dataset.assets_last_cycle_dict['min'] - 2*cls.filter_window_size
+                self.min_monitoring_cycle = self.dataset.assets_last_cycle_dict['min'] - cls.filter_window_size
+                if self.min_monitoring_cycle - 2*cls.filter_window_size < 1:
+                        print(f'In compute_min_monitoring_cycle(), min_monitoring_cycle lesser than allowed value (1)')
+                        sys.exit(1)
+
 
 
         def get_max_monitoring_cycle_for_asset(self, asset_id):
@@ -240,14 +245,14 @@ class TransformedDataset:
 
                 max_monitoring_cycle = self.get_max_monitoring_cycle_for_asset(asset_id)
                 
-                monitoring_cycle = 0
+                current_monitoring_cycle = 0
 
                 if type=='random':
-                        monitoring_cycle = randrange(self.min_monitoring_cycle, max_monitoring_cycle, cls.monitoring_cycle_step)
-                elif type=='fully':
-                        monitoring_cycle = range(1, max_monitoring_cycle, cls.monitoring_cycle_step)
+                        current_monitoring_cycle = randrange(self.min_monitoring_cycle, max_monitoring_cycle, cls.monitoring_cycle_step)
+                elif type=='full':
+                        current_monitoring_cycle = next(iter(range(self.min_monitoring_cycle, max_monitoring_cycle+1, cls.monitoring_cycle_step)))
                 
-                yield monitoring_cycle
+                yield current_monitoring_cycle
 
 
         def get_remaining_useful_life_value(self, asset_id, current_monitoring_cycle):
@@ -291,10 +296,14 @@ class TransformedDataset:
                 cycle_sensor_array = self.dataset.get_cycle_feature_array_for_asset(asset_id, sensor_name)
                 sensor_array = cycle_sensor_array[:, 1]
 
-                low_index = current_monitoring_cycle - 2*cls.filter_window_size + 1
-                mid_index = current_monitoring_cycle - cls.filter_window_size + 1
-                high_index = current_monitoring_cycle
+                low_index = (current_monitoring_cycle - 2*cls.filter_window_size + 1) - 1 
+                if low_index < 1: 
+                        print(f'low_index < 1')
+                        sys.exit(1)
+                mid_index = (current_monitoring_cycle - cls.filter_window_size + 1) - 1 
+                high_index = current_monitoring_cycle - 1
 
+                
                 present_windowed_sensor_signal = sensor_array[mid_index:high_index]
                 past_windowed_sensor_signal = sensor_array[low_index:mid_index-1]
 
@@ -325,7 +334,7 @@ class TransformedDataset:
                 cycle_setting_array = self.dataset.get_cycle_feature_array_for_asset(asset_id, setting_name)
                 setting_array = cycle_setting_array[:, 1]
 
-                monitoring_setting = setting_array[current_monitoring_cycle]
+                monitoring_setting = setting_array[current_monitoring_cycle-1]
 
                 return monitoring_setting
 
@@ -339,32 +348,39 @@ class TransformedDataset:
 
                 dataframe_rows = []
 
+                current_monitoring_cycle = 0
                 data_id = 1
 
-                # loop over assets
+                # Loop over assets
                 for asset in self.dataset.assets:
 
                         n_monitoring_cycles_per_asset = cls.n_monitoring_cycles_per_asset
 
-                        # loop over monitoring cycles
+                        monitoring_cycle_range_for_asset = self.get_max_monitoring_cycle_for_asset(asset_id=asset) - self.min_monitoring_cycle
+                        monitoring_cycle_resolution_for_asset = int(monitoring_cycle_range_for_asset / cls.monitoring_cycle_step)
+
+                        # If greater than 1.0 it would repeate data
+                        coverage_monitoring_cycle_space = n_monitoring_cycles_per_asset / monitoring_cycle_resolution_for_asset   
+                        print(f'asset {asset}: coverage_monitoring_cycle_space ({coverage_monitoring_cycle_space})')                             
+                        if coverage_monitoring_cycle_space > 1:
+                                n_monitoring_cycles_per_asset = monitoring_cycle_resolution_for_asset 
+
+                        # Loop over monitoring cycles
                         for _ in range(cls.n_monitoring_cycles_per_asset):
                                
-                                current_monitoring_cycle = next(self.pick_monitoring_cycle(asset_id=asset, type='random'))
-                                
-                                rul = self.get_remaining_useful_life_value(asset_id=asset, current_monitoring_cycle=current_monitoring_cycle)
+                                if self.dataset.type=='train':
+                                        current_monitoring_cycle = next(self.pick_monitoring_cycle(asset_id=asset, type='full'))
+                                        rul = self.get_remaining_useful_life_value(asset_id=asset, current_monitoring_cycle=current_monitoring_cycle)
+                                elif self.dataset.type=='test':        
+                                        current_monitoring_cycle = self.get_max_monitoring_cycle_for_asset(asset_id=asset)
+                                else:
+                                        print(f'In create_dataframe(), the type={type} is not available. Please use \'train\' or \'test\'.')
+                                        sys.exit(1)                                
 
                                 setting_row = []
                                 sensor_and_time_derivative_row = []
-
-                                monitoring_cycle_range_for_asset = self.get_max_monitoring_cycle_for_asset(asset_id=asset) - self.min_monitoring_cycle
-                                monitoring_cycle_resolution_for_asset = int(monitoring_cycle_range_for_asset / cls.monitoring_cycle_step)
-
-                                # If greater than 1.0 it would repeate data
-                                coverage_monitoring_cycle_space = n_monitoring_cycles_per_asset / monitoring_cycle_resolution_for_asset                                
-                                if coverage_monitoring_cycle_space > 1:
-                                        n_monitoring_cycles_per_asset = monitoring_cycle_resolution_for_asset 
                                 
-                                # loop over settings
+                                # Loop over settings
                                 for setting in self.selected_settings:
                                         s = self.get_monitoring_setting_value(asset_id=asset, setting_name=setting, current_monitoring_cycle=current_monitoring_cycle)
                                         setting_row.append(s)
@@ -384,7 +400,10 @@ class TransformedDataset:
                                         sys.exit(1)  
 
                                 data_id += 1
-                                   
+
+                                # Break loop over monitoring cycles
+                                if self.dataset.type=='test': 
+                                        break                                   
                 
                 self.dataframe = pd.DataFrame(np.array(dataframe_rows),
                                               columns=self.dataset_header)                             
