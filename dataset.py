@@ -236,7 +236,7 @@ class TransformedDataset:
                 return max_monitoring_cycle        
 
             
-        def pick_monitoring_cycle(self, asset_id, type='random'):
+        def pick_monitoring_cycle(self, asset_id, pick_type='random'):
                 """
                 Info
                 """
@@ -244,15 +244,15 @@ class TransformedDataset:
                 cls = self.__class__
 
                 max_monitoring_cycle = self.get_max_monitoring_cycle_for_asset(asset_id)
-                
-                current_monitoring_cycle = 0
 
-                if type=='random':
-                        current_monitoring_cycle = randrange(self.min_monitoring_cycle, max_monitoring_cycle, cls.monitoring_cycle_step)
-                elif type=='full':
-                        current_monitoring_cycle = next(iter(range(self.min_monitoring_cycle, max_monitoring_cycle+1, cls.monitoring_cycle_step)))
+                if pick_type=='random':                        
+                        return randrange(self.min_monitoring_cycle, max_monitoring_cycle, cls.monitoring_cycle_step)
+                else:
+                        print(f'In pick_monitoring_cycle(), the pick_type={pick_type} is not available. Please use \'random\'.')
+                        sys.exit(1)                
+                        
+               
                 
-                yield current_monitoring_cycle
 
 
         def get_remaining_useful_life_value(self, asset_id, current_monitoring_cycle):
@@ -266,21 +266,21 @@ class TransformedDataset:
                 return rul
 
 
-        def filter_windowed_sensor_signal(self, windowed_sensor_signal, signal_filter='mean'):
+        def filter_windowed_sensor_signal(self, windowed_sensor_signal, filter_type='mean'):
                 """
                 Returns: a numpy array
                 """
 
                 filtered_signal = 0.
 
-                if signal_filter=='mean':
+                if filter_type=='mean':
                         filtered_signal = np.mean(windowed_sensor_signal)
-                elif self.type=='low':
+                elif filter_type=='low':
                         filtered_signal = windowed_sensor_signal[0]
-                elif self.type=='high':
+                elif filter_type=='high':
                         filtered_signal = windowed_sensor_signal[-1]
                 else:
-                        print(f'In filter_windowed_sensor_signal(), the signal_filter={signal_filter} is not available. Please use \'mean\', \'low\' or \'high\'.')
+                        print(f'In filter_windowed_sensor_signal(), the filter_type={filter_type} is not available. Please use \'mean\', \'low\' or \'high\'.')
                         sys.exit(1)
 
                 return filtered_signal
@@ -362,14 +362,18 @@ class TransformedDataset:
                         # If greater than 1.0 it would repeate data
                         coverage_monitoring_cycle_space = n_monitoring_cycles_per_asset / monitoring_cycle_resolution_for_asset   
                         print(f'asset {asset}: coverage_monitoring_cycle_space ({coverage_monitoring_cycle_space})')                             
-                        if coverage_monitoring_cycle_space > 1:
-                                n_monitoring_cycles_per_asset = monitoring_cycle_resolution_for_asset 
+                        # The 0.5 factor is a temporary approach to handle repeated monitoring_cycle in the random function
+                        coverage_restraint = 0.5
+                        if coverage_monitoring_cycle_space > coverage_restraint:                                
+                                n_monitoring_cycles_per_asset = int(coverage_restraint*monitoring_cycle_resolution_for_asset) 
+                                coverage_monitoring_cycle_space = n_monitoring_cycles_per_asset / monitoring_cycle_resolution_for_asset   
+                                print(f'\tcorrected coverage_monitoring_cycle_space ({coverage_monitoring_cycle_space})')
 
                         # Loop over monitoring cycles
-                        for _ in range(cls.n_monitoring_cycles_per_asset):
+                        for _ in range(n_monitoring_cycles_per_asset):
                                
                                 if self.dataset.type=='train':
-                                        current_monitoring_cycle = next(self.pick_monitoring_cycle(asset_id=asset, type='full'))
+                                        current_monitoring_cycle = self.pick_monitoring_cycle(asset_id=asset, pick_type='random')
                                         rul = self.get_remaining_useful_life_value(asset_id=asset, current_monitoring_cycle=current_monitoring_cycle)
                                 elif self.dataset.type=='test':        
                                         current_monitoring_cycle = self.get_max_monitoring_cycle_for_asset(asset_id=asset)
