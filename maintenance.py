@@ -54,32 +54,32 @@ def main(args):
 
 
         # Get values of settings and sensors for a specific asset
-        train_row_settings, train_row_sensors = train_dataset.get_settings_and_sensors_for_asset_and_cycle(asset_id=1, 
-                                                                                                           cycle=1, 
-                                                                                                           selected_settings=selected_settings, 
-                                                                                                           selected_sensors=selected_sensors)
+        #train_row_settings, train_row_sensors = train_dataset.get_settings_and_sensors_for_asset_and_cycle(asset_id=1, 
+        #                                                                                                   cycle=1, 
+        #                                                                                                   selected_settings=selected_settings, 
+        #                                                                                                   selected_sensors=selected_sensors)
       
-        test_row_settings, test_row_sensors = test_dataset.get_settings_and_sensors_for_asset_and_cycle(asset_id=1, 
-                                                                                                        cycle=1, 
-                                                                                                        selected_settings=selected_settings, 
-                                                                                                        selected_sensors=selected_sensors)
+        #test_row_settings, test_row_sensors = test_dataset.get_settings_and_sensors_for_asset_and_cycle(asset_id=1, 
+        #                                                                                                cycle=1, 
+        #                                                                                                selected_settings=selected_settings, 
+        #                                                                                                selected_sensors=selected_sensors)
 
 
         # Get last cycle for a specific asset
         # For the train dataset, it is the failure cycle
-        train_last_cycle_for_asset = train_dataset.get_asset_last_cycle(asset_id=1)
-        test_last_cycle_for_asset = test_dataset.get_asset_last_cycle(asset_id=1)
+        #train_last_cycle_for_asset = train_dataset.get_asset_last_cycle(asset_id=1)
+        #test_last_cycle_for_asset = test_dataset.get_asset_last_cycle(asset_id=1)
 
 
         # Create train and test analysis
-        train_analysis = analysis.DatasetAnalysis(train_dataset) 
-        test_analysis = analysis.DatasetAnalysis(test_dataset)
+        train_dataset_analysis = analysis.DatasetAnalysis(train_dataset) 
+        test_dataset_analysis = analysis.DatasetAnalysis(test_dataset)
 
         #
-        dummy_mean_precision = train_analysis.get_dummy_mean_precision(type='mean')
+        dummy_mean_precision = train_dataset_analysis.get_dummy_mean_precision(type='mean')
         neptune.log_metric(f'dummy-mean-precision-type-mean', dummy_mean_precision)
         
-        dummy_mean_precision = train_analysis.get_dummy_mean_precision(type='min')
+        dummy_mean_precision = train_dataset_analysis.get_dummy_mean_precision(type='min')
         neptune.log_metric(f'dummy-mean-precision-type-min', dummy_mean_precision)
        
 
@@ -89,35 +89,35 @@ def main(args):
 
         # 
         train_dataset.compute_assets_last_cycle_statistics()
-        train_analysis.log_violinchart(train_assets_last_cycles_array, log_category='train-target-charts', plot_name='train-failure-cycles')
-        train_analysis.log_boxchart(train_assets_last_cycles_array, log_category='train-target-charts', plot_name='train-failure-cycles')
+        train_dataset_analysis.log_violinchart(train_assets_last_cycles_array, log_category='train-target-charts', plot_name='train-failure-cycles')
+        train_dataset_analysis.log_boxchart(train_assets_last_cycles_array, log_category='train-target-charts', plot_name='train-failure-cycles')
         
         #
         test_dataset.compute_assets_last_cycle_statistics()
-        test_analysis.log_violinchart(test_assets_last_cycles_array, log_category='test-target-charts', plot_name='test-failure-cycles')
-        test_analysis.log_boxchart(test_assets_last_cycles_array, log_category='test-target-charts', plot_name='test-failure-cycles')
+        test_dataset_analysis.log_violinchart(test_assets_last_cycles_array, log_category='test-target-charts', plot_name='test-failure-cycles')
+        test_dataset_analysis.log_boxchart(test_assets_last_cycles_array, log_category='test-target-charts', plot_name='test-failure-cycles')
 
 
 
         #
         for ss in selected_settings:
-                train_analysis.log_feature_linechart_for_asset(asset_id=75, feature_name=ss)
+                train_dataset_analysis.log_feature_linechart_for_asset(asset_id=75, feature_name=ss)
         for ss in selected_sensors:
-                train_analysis.log_feature_linechart_for_asset(asset_id=75, feature_name=ss)                
-                train_analysis.log_sensor_failure_value_linechart_for_assets(sensor_name=ss)       
+                train_dataset_analysis.log_feature_linechart_for_asset(asset_id=75, feature_name=ss)                
+                train_dataset_analysis.log_sensor_failure_value_linechart_for_assets(sensor_name=ss)       
                 train_sensor_failure_values_array = train_dataset.get_sensors_last_value_for_assets(sensor_name=ss)
-                train_analysis.log_violinchart(train_sensor_failure_values_array[:, 1], log_category='train-features-charts', plot_name=f'train-{ss}-failure-assets')
-                train_analysis.log_boxchart(train_sensor_failure_values_array[:, 1], log_category='train-features-charts', plot_name=f'train-{ss}-failure-assets')
+                train_dataset_analysis.log_violinchart(train_sensor_failure_values_array[:, 1], log_category='train-features-charts', plot_name=f'train-{ss}-failure-assets')
+                train_dataset_analysis.log_boxchart(train_sensor_failure_values_array[:, 1], log_category='train-features-charts', plot_name=f'train-{ss}-failure-assets')
 
         #
         for ss in selected_settings:
-                test_analysis.log_feature_linechart_for_asset(asset_id=75, feature_name=ss)
+                test_dataset_analysis.log_feature_linechart_for_asset(asset_id=75, feature_name=ss)
         for ss in selected_sensors:
-                test_analysis.log_feature_linechart_for_asset(asset_id=75, feature_name=ss)                
-                test_analysis.log_sensor_failure_value_linechart_for_assets(sensor_name=ss)       
+                test_dataset_analysis.log_feature_linechart_for_asset(asset_id=75, feature_name=ss)                
+                test_dataset_analysis.log_sensor_failure_value_linechart_for_assets(sensor_name=ss)       
                 test_sensor_failure_values_array = test_dataset.get_sensors_last_value_for_assets(sensor_name=ss)
-                test_analysis.log_violinchart(test_sensor_failure_values_array[:, 1], log_category='test-features-charts', plot_name=f'test-{ss}-failure-assets')
-                test_analysis.log_boxchart(test_sensor_failure_values_array[:, 1], log_category='test-features-charts', plot_name=f'test-{ss}-failure-assets')
+                test_dataset_analysis.log_violinchart(test_sensor_failure_values_array[:, 1], log_category='test-features-charts', plot_name=f'test-{ss}-failure-assets')
+                test_dataset_analysis.log_boxchart(test_sensor_failure_values_array[:, 1], log_category='test-features-charts', plot_name=f'test-{ss}-failure-assets')
 
 
 
@@ -129,6 +129,42 @@ def main(args):
         test_transformed_dataset = dataset.TransformedDataset(dataset=test_dataset, selected_settings_sensors_tuple=(selected_settings, selected_sensors))  
         print(f'test_dataset.dataframe has nan: {train_transformed_dataset.dataframe.isnull().values.any()}')   
         print(test_transformed_dataset.dataframe)
+
+        # Log dataframe info into stdout
+        print(train_transformed_dataset.dataframe.dtypes)        
+        print(train_transformed_dataset.dataframe.describe())
+
+
+
+        # Create train transformed dataset analysis
+        train_transformed_dataset_analysis = analysis.TransformedDatasetAnalysis(train_transformed_dataset)
+
+        #
+        train_transformed_dataset_analysis.log_correlation_matrix(log_category='transformed-dataset-train-charts')
+
+        #
+        feature_array = train_transformed_dataset.get_feature_array(feature_name='monitoring-cycle')
+        train_transformed_dataset_analysis.log_violinchart(feature_array, log_category='transformed-dataset-train-charts', plot_name='train-monitoring-cycle')
+        train_transformed_dataset_analysis.log_boxchart(feature_array, log_category='transformed-dataset-train-charts', plot_name='train-monitoring-cycle')
+        train_transformed_dataset_analysis.log_scatterchart(log_category='transformed-dataset-train-charts', feature_name='monitoring-cycle')
+        for ss in selected_settings:
+                feature_array = train_transformed_dataset.get_feature_array(feature_name=ss)
+                train_transformed_dataset_analysis.log_violinchart(feature_array, log_category='transformed-dataset-train-charts', plot_name=f'train-{ss}')
+                train_transformed_dataset_analysis.log_boxchart(feature_array, log_category='transformed-dataset-train-charts', plot_name=f'train-{ss}')
+                train_transformed_dataset_analysis.log_scatterchart(log_category='transformed-dataset-train-charts', feature_name=ss)
+        for ss in selected_sensors:
+                feature_array = train_transformed_dataset.get_feature_array(feature_name=ss)
+                train_transformed_dataset_analysis.log_violinchart(feature_array, log_category='transformed-dataset-train-charts', plot_name=f'train-{ss}')
+                train_transformed_dataset_analysis.log_boxchart(feature_array, log_category='transformed-dataset-train-charts', plot_name=f'train-{ss}')
+                train_transformed_dataset_analysis.log_scatterchart(log_category='transformed-dataset-train-charts', feature_name=ss)
+
+
+
+
+        
+
+
+
 
 
 
