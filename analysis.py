@@ -3,15 +3,18 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib import cm
-import neptune
 
 
 
 class Analysis:
 
-        def __init__(self):
-                pass
+        def __init__(self, log):
+                """
+                Info
+                """
 
+                self.log = log
+                self.args = log.args
 
         
         def log_violinchart(self, array, log_category, plot_name):
@@ -23,7 +26,7 @@ class Analysis:
                 ax = fig.add_subplot(111)
                 ax.violinplot(array, showmeans=False, showmedians=True)                
                 ax.set_xlabel(plot_name)                
-                neptune.log_image(f'{log_category}', fig, image_name=f'{plot_name}-violinchart')
+                self.log.exp.log_image(f'{log_category}', fig, image_name=f'{plot_name}-violinchart')
                 plt.close(fig)
 
 
@@ -36,81 +39,21 @@ class Analysis:
                 ax = fig.add_subplot(111)
                 ax.boxplot(array)                
                 ax.set_xlabel(plot_name)                
-                neptune.log_image(f'{log_category}', fig, image_name=f'{plot_name}-boxchart')
+                self.log.exp.log_image(f'{log_category}', fig, image_name=f'{plot_name}-boxchart')
                 plt.close(fig)   
-
-
-
-class TransformedDatasetAnalysis(Analysis):
-
-        def __init__(self, transformed_dataset):
-                """
-                Info
-                """
-
-                self.transformed_dataset = transformed_dataset
-                self.correlation_method = 'spearman'
-                self.correlation_matrix_bar_scale = 1.0
-
-
-        def log_correlation_matrix(self, log_category):
-
-                if self.transformed_dataset.type=='train':
-  
-                        fig = plt.figure(figsize=(16., 9.), dpi=300)
-                        ax = fig.add_subplot(111)
-                        # Optins: 'Greys', 'jet'
-                        cmap = cm.get_cmap('RdYlGn', lut=30) 
-                        labels = self.transformed_dataset.dataset_header[1:] 
-                        # Option: interpolation='nearest'
-                        cax = ax.imshow(self.transformed_dataset.dataframe[labels].corr(method=self.correlation_method), vmin=-self.correlation_matrix_bar_scale, vmax=self.correlation_matrix_bar_scale, interpolation='None', cmap=cmap)
-                        #ax.grid(True)
-                        #plt.title('Title', fontsize=18)  
-                        ticks = np.arange(0, len(labels), 1)
-                        ax.set_xticks(ticks)
-                        ax.set_yticks(ticks)
-                        ax.set_xticklabels(labels, color='k', fontweight='normal', fontsize=8, fontstyle='italic', rotation='90')
-                        ax.set_yticklabels(labels, color='k', fontweight='normal', fontsize=8, fontstyle='italic')
-                        # Option: ticks=[-1, -0,75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1]
-                        cbar = fig.colorbar(cax, shrink=0.8, aspect=20, fraction=.15, pad=.03) 
-                        cbar.set_label(self.correlation_method, size=8)
-                        cbar.ax.tick_params(labelsize=6) 
-                        plt.tight_layout()
-                        neptune.log_image(log_category, fig, image_name=f'{self.transformed_dataset.type}-correlationmatrix')
-                        plt.close(fig)
-                else:
-                        print('on correlation_matrix')      
-                        sys.exit(1) 
-
-
-        def log_scatterchart(self, log_category, feature_name):
-
-                df = self.transformed_dataset.dataframe
-
-                fig = plt.figure(figsize=(4., 3.), dpi=1200)
-                ax = fig.add_subplot(111)
-
-                for x, y, i in zip(df.loc[:, feature_name], df.loc[:, 'rul'], df['monitoring-cycle']):              
-                        ax.plot(x, y, 'o', color='g', alpha=0.2, markersize=2)
-                        ax.annotate(i, (x, y), size=1, color='k')            
-                   
-                plt.xlabel(feature_name, color='k', fontweight='normal', fontsize=8, fontstyle='italic')
-                plt.ylabel('rul', color='k', fontweight='normal', fontsize=8, fontstyle='italic', rotation='vertical')  
-                ax.tick_params(labelsize=6) 
-                plt.tight_layout()
-                neptune.log_image(log_category, fig, image_name=f'{self.transformed_dataset.type}-{feature_name}-scatterchart')
-                plt.close(fig)                 
 
 
 
 
 class DatasetAnalysis(Analysis):
 
-        def __init__(self, dataset):
+        def __init__(self, log, dataset):
                 """
                 Info
                 """
 
+                self.log = log
+                self.args = log.args  
                 self.dataset = dataset
                
 
@@ -151,7 +94,7 @@ class DatasetAnalysis(Analysis):
                 plt.xlabel('cycle')
                 plt.ylabel(f'{feature_name}')
                 plt.tight_layout()
-                neptune.log_image(f'{self.dataset.type}-features-charts', fig, image_name=f'{self.dataset.type}-{feature_name}-for-asset-linechart{asset_id}')
+                self.log.exp.log_image(f'{self.dataset.type}-features-charts', fig, image_name=f'{self.dataset.type}-{feature_name}-for-asset-{asset_id}-linechart')
                 plt.close(fig)
                 
 
@@ -168,5 +111,71 @@ class DatasetAnalysis(Analysis):
                 plt.xlabel('asset')
                 plt.ylabel(f'{sensor_name}')
                 plt.tight_layout()
-                neptune.log_image(f'{self.dataset.type}-features-charts', fig, image_name=f'{self.dataset.type}-failure-values-of-{sensor_name}-for-assets-linechart')
+                self.log.exp.log_image(f'{self.dataset.type}-features-charts', fig, image_name=f'{self.dataset.type}-failure-values-of-{sensor_name}-for-assets-linechart')
+                plt.close(fig)
+
+
+
+
+class TransformedDatasetAnalysis(Analysis):
+
+        def __init__(self, log, transformed_dataset):
+                """
+                Info
+                """
+
+                self.log = log
+                self.args = log.args  
+                self.transformed_dataset = transformed_dataset
+
+                self.correlation_method = 'spearman'
+                self.correlation_matrix_bar_scale = 1.0
+
+
+        def log_correlation_matrix(self, log_category):
+
+                if self.transformed_dataset.type=='train':
+  
+                        fig = plt.figure(figsize=(16., 9.), dpi=300)
+                        ax = fig.add_subplot(111)
+                        # Optins: 'Greys', 'jet'
+                        cmap = cm.get_cmap('RdYlGn', lut=30) 
+                        labels = self.transformed_dataset.dataset_header[1:] 
+                        # Option: interpolation='nearest'
+                        cax = ax.imshow(self.transformed_dataset.dataframe[labels].corr(method=self.correlation_method), vmin=-self.correlation_matrix_bar_scale, vmax=self.correlation_matrix_bar_scale, interpolation='None', cmap=cmap)
+                        #ax.grid(True)
+                        #plt.title('Title', fontsize=18)  
+                        ticks = np.arange(0, len(labels), 1)
+                        ax.set_xticks(ticks)
+                        ax.set_yticks(ticks)
+                        ax.set_xticklabels(labels, color='k', fontweight='normal', fontsize=8, fontstyle='italic', rotation='90')
+                        ax.set_yticklabels(labels, color='k', fontweight='normal', fontsize=8, fontstyle='italic')
+                        # Option: ticks=[-1, -0,75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1]
+                        cbar = fig.colorbar(cax, shrink=0.8, aspect=20, fraction=.15, pad=.03) 
+                        cbar.set_label(self.correlation_method, size=10)
+                        cbar.ax.tick_params(labelsize=8) 
+                        plt.tight_layout()
+                        self.log.exp.log_image(log_category, fig, image_name=f'{self.transformed_dataset.type}-correlationmatrix')
+                        plt.close(fig)
+                else:
+                        print('on correlation_matrix')      
+                        sys.exit(1) 
+
+
+        def log_scatterchart(self, feature_name, log_category):
+
+                df = self.transformed_dataset.dataframe
+
+                fig = plt.figure(figsize=(4., 3.), dpi=1200)
+                ax = fig.add_subplot(111)
+
+                for x, y, i in zip(df.loc[:, feature_name], df.loc[:, 'rul'], df['monitoring-cycle']):              
+                        ax.plot(x, y, 'o', color='g', alpha=0.2, markersize=2)
+                        ax.annotate(i, (x, y), size=1, color='k')            
+                   
+                plt.xlabel(feature_name, color='k', fontweight='normal', fontsize=8, fontstyle='italic')
+                plt.ylabel('rul', color='k', fontweight='normal', fontsize=8, fontstyle='italic', rotation='vertical')  
+                ax.tick_params(labelsize=6) 
+                plt.tight_layout()
+                self.log.exp.log_image(log_category, fig, image_name=f'{self.transformed_dataset.type}-{feature_name}-scatterchart')
                 plt.close(fig)
