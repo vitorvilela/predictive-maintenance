@@ -5,6 +5,8 @@ import pandas as pd
 import os
 from neptunecontrib.api.table import log_table
 
+import neptune_settings as ns
+
 
 
 
@@ -26,11 +28,13 @@ class Dataset:
         dataset_header = ['asset_id', 'cycle'] + settings_head + sensors_head
 
 
-        def __init__(self, type):
+        def __init__(self, log, type):
                 """
                 Info
                 """
 
+                self.log = log
+                self.args = log.args  
                 self.type = type
                 csv_file_name = 'PM_train.csv' if type=='train' else 'PM_test.csv'                
                 self.load_dataset_from_csv(csv_file_name)
@@ -45,7 +49,7 @@ class Dataset:
 
                 cls = self.__class__
 
-                csv_file_path = os.path.join(os.path.join(self.cwd, 'dataset'), csv_file_name)
+                csv_file_path = os.path.join(os.path.join(cls.cwd, 'dataset'), csv_file_name)
                 self.dataframe = pd.read_csv(csv_file_path, names=cls.dataset_header, header=None, delim_whitespace=True)
 
                 self.assets = np.unique(self.dataframe['asset_id'].values)
@@ -188,25 +192,13 @@ class TransformedDataset:
         # Current working directory. In case we export/import transformed dataset csv files.
         cwd = os.getcwd()
 
-        #
-        origin_cycle_period = 1
-
-        # It can be necessary to have different filter_window_size for train and test dataset
-        # Because it is not possible a priori to restrict the mininum monitoring cycle at the test dataset
-        filter_window_size = 10
-
-        #
-        monitoring_cycle_step = int(0.5*filter_window_size)
-
-        # 
-        n_monitoring_cycles_per_asset = 10
-
-
-        def __init__(self, dataset, selected_settings_sensors_tuple):
+        def __init__(self, log, dataset, selected_settings_sensors_tuple):
                 """
                 origin_selected_head: a tuple containing (selected_settings, selected_sensors) from the origin dataset
                 """
 
+                self.log = log
+                self.args = log.args                
                 self.dataset = dataset
                 self.type = dataset.type
 
@@ -245,10 +237,8 @@ class TransformedDataset:
                 Info
                 """
                 
-                cls = self.__class__
-
-                self.min_monitoring_cycle = self.dataset.assets_last_cycle_dict['min'] - cls.filter_window_size
-                if self.min_monitoring_cycle - 2*cls.filter_window_size < 1:
+                self.min_monitoring_cycle = self.dataset.assets_last_cycle_dict['min'] - self.args.filter_window_size
+                if self.min_monitoring_cycle - 2*self.args.filter_window_size < 1:
                         print(f'In compute_min_monitoring_cycle(), min_monitoring_cycle lesser than allowed value (1)')
                         sys.exit(1)
 
@@ -268,12 +258,10 @@ class TransformedDataset:
                 Info
                 """
 
-                cls = self.__class__
-
                 max_monitoring_cycle = self.get_max_monitoring_cycle_for_asset(asset_id)
 
                 if pick_type=='random':                        
-                        return randrange(self.min_monitoring_cycle, max_monitoring_cycle, cls.monitoring_cycle_step)
+                        return randrange(self.min_monitoring_cycle, max_monitoring_cycle, self.args.monitoring_cycle_step)
                 else:
                         print(f'In pick_monitoring_cycle(), the pick_type={pick_type} is not available. Please use \'random\'.')
                         sys.exit(1)                
@@ -315,16 +303,14 @@ class TransformedDataset:
                 Returns: a float tuple
                 """
 
-                cls = self.__class__        
-
                 cycle_sensor_array = self.dataset.get_cycle_feature_array_for_asset(asset_id, sensor_name)
                 sensor_array = cycle_sensor_array[:, 1]
 
-                low_index = (current_monitoring_cycle - 2*cls.filter_window_size + 1) - 1 
+                low_index = (current_monitoring_cycle - 2*self.args.filter_window_size + 1) - 1 
                 if low_index < 1: 
                         print(f'low_index < 1')
                         sys.exit(1)
-                mid_index = (current_monitoring_cycle - cls.filter_window_size + 1) - 1 
+                mid_index = (current_monitoring_cycle - self.args.filter_window_size + 1) - 1 
                 high_index = current_monitoring_cycle - 1
 
                 
@@ -343,9 +329,7 @@ class TransformedDataset:
                 Info
                 """
 
-                cls = self.__class__ 
-
-                signal_time_derivative = (present_signal_value - past_signal_value) / cls.filter_window_size
+                signal_time_derivative = (present_signal_value - past_signal_value) / self.args.filter_window_size
 
                 return signal_time_derivative
 
@@ -368,8 +352,6 @@ class TransformedDataset:
                 Info
                 """
 
-                cls = self.__class__
-
                 dataframe_rows = []
 
                 current_monitoring_cycle = 0
@@ -378,10 +360,10 @@ class TransformedDataset:
                 # Loop over assets
                 for asset in self.dataset.assets:
 
-                        n_monitoring_cycles_per_asset = cls.n_monitoring_cycles_per_asset
+                        n_monitoring_cycles_per_asset = self.args.n_monitoring_cycles_per_asset
 
                         monitoring_cycle_range_for_asset = self.get_max_monitoring_cycle_for_asset(asset_id=asset) - self.min_monitoring_cycle
-                        monitoring_cycle_resolution_for_asset = int(monitoring_cycle_range_for_asset / cls.monitoring_cycle_step)
+                        monitoring_cycle_resolution_for_asset = int(monitoring_cycle_range_for_asset / self.args.monitoring_cycle_step)
 
                         # If greater than 1.0 it would repeate data
                         coverage_monitoring_cycle_space = n_monitoring_cycles_per_asset / monitoring_cycle_resolution_for_asset   
@@ -437,5 +419,5 @@ class TransformedDataset:
                 self.dataframe = pd.DataFrame(np.array(dataframe_rows),
                                               columns=columns) 
                 
-                # TODO change data-id, monitoring-cycle and rul columns dtype to int 
+                # TODO Change data-id, monitoring-cycle and rul columns dtype to int, or create pandas using a dict
                 #self.dataframe.astype({columns[0]: 'int32', columns[1]: 'int32', columns[-1]: 'int32'}).dtypes
