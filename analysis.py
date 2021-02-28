@@ -57,26 +57,63 @@ class DatasetAnalysis(Analysis):
                 self.dataset = dataset
                
 
-        def get_dummy_mean_precision(self, type='mean'):
+        def get_dummy_error(self, based_on='min', stats='max'):
                 """
                 Info
                 """
 
                 assets_last_cycle_array = self.dataset.get_assets_last_cycle_array()
                 
-                dummy_mean_precision = 0.
+                dummy_error = 0.
 
-                if type=='mean':
-                        dummy_precision_array = 1. - np.abs(assets_last_cycle_array -  self.dataset.assets_last_cycle_dict['mean']) / self.dataset.assets_last_cycle_dict['mean']
-                        dummy_mean_precision = np.mean(dummy_precision_array)
-                elif type=='min':
-                        dummy_precision_array = 1. - np.abs(assets_last_cycle_array -  self.dataset.assets_last_cycle_dict['min']) / self.dataset.assets_last_cycle_dict['min']
-                        dummy_mean_precision = np.mean(dummy_precision_array)                
+                if based_on=='mean':
+                        dummy_error_array = np.abs(assets_last_cycle_array - self.dataset.assets_last_cycle_dict['mean'])
+                # The absolute function applied to the "min" prediction is redundant, but it is kept for clarity                                
+                elif based_on=='min':
+                        dummy_error_array = np.abs(assets_last_cycle_array - self.dataset.assets_last_cycle_dict['min'])                                        
                 else:
-                        print(f'In get_dummy_precision(), the type={type} is not available. Please use \'mean\' or \'min\'.')
+                        print(f'In get_precision(), based_on={based_on} is not available. Please use \'mean\' or \'min\'.')
                         sys.exit(1)  
 
-                return dummy_mean_precision        
+                if stats=='mean':
+                        dummy_error = int(np.mean(dummy_error_array))      
+                elif stats=='max':   
+                        dummy_error = int(np.max(dummy_error_array))
+                else:
+                        print(f'In get_precision(), stats={stats} is not available. Please use \'mean\' or \'max\'.')
+                        sys.exit(1)          
+
+                return dummy_error
+
+
+
+        def get_dummy_percentage_error(self, based_on='min', stats='max'):
+                """
+                Info
+                """
+
+                assets_last_cycle_array = self.dataset.get_assets_last_cycle_array()
+                
+                dummy_percentage_error = 0.
+
+                if based_on=='mean':
+                        dummy_percentage_error_array = np.abs(assets_last_cycle_array -  self.dataset.assets_last_cycle_dict['mean']) / assets_last_cycle_array  
+                # The absolute function applied to the "min" prediction is redundant, but it is kept for clarity                              
+                elif based_on=='min':
+                        dummy_percentage_error_array = np.abs(assets_last_cycle_array -  self.dataset.assets_last_cycle_dict['min']) / assets_last_cycle_array                                        
+                else:
+                        print(f'In get_precision(), based_on={based_on} is not available. Please use \'mean\' or \'min\'.')
+                        sys.exit(1)  
+
+                if stats=='mean':
+                        dummy_percentage_error = 100*np.mean(dummy_percentage_error_array)      
+                elif stats=='max':   
+                        dummy_percentage_error = 100*np.max(dummy_percentage_error_array)
+                else:
+                        print(f'In get_precision(), stats={stats} is not available. Please use \'mean\' or \'max\'.')
+                        sys.exit(1)          
+
+                return dummy_percentage_error        
 
 
         def log_feature_linechart_for_asset(self, asset_id, feature_name):
@@ -140,7 +177,7 @@ class TransformedDatasetAnalysis(Analysis):
                         ax = fig.add_subplot(111)
                         # Optins: 'Greys', 'jet'
                         cmap = cm.get_cmap('RdYlGn', lut=30) 
-                        labels = self.transformed_dataset.dataset_header[1:] 
+                        labels = self.transformed_dataset.dataset_header 
                         # Option: interpolation='nearest'
                         cax = ax.imshow(self.transformed_dataset.dataframe[labels].corr(method=self.correlation_method), vmin=-self.correlation_matrix_bar_scale, vmax=self.correlation_matrix_bar_scale, interpolation='None', cmap=cmap)
                         #ax.grid(True)

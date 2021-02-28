@@ -169,19 +169,24 @@ class Model:
 
                                 # Temporary model scores 
                                 print(f'\nModel: {model_name}')
-
-                                ape = np.abs(100*(Y_pred-np.squeeze(Y.values))/np.squeeze(Y.values))
+                                
+                                print(f'\nape (mean - max)')
+                                ape = np.abs(100*(np.squeeze(Y.values)-Y_pred)/np.squeeze(Y.values))
                                 print(f'{np.mean(ape)} - {np.max(ape)}')
-
-                                ae = np.abs(Y_pred-np.squeeze(Y.values))
+                                
+                                print(f'\nae (mean - max)')
+                                ae = np.abs(np.squeeze(Y.values)-Y_pred)
                                 print(f'{np.mean(ae)} - {np.max(ae)}')
 
+                                print(f'\nmse (mean - max)')
                                 mse = mean_squared_error(np.squeeze(Y.values), Y_pred)
                                 print(f'{np.mean(mse)} - {np.max(mse)}')
 
+                                print(f'\nrmse (mean - max)')
                                 rmse = np.sqrt(mse)
                                 print(f'{np.mean(rmse)} - {np.max(rmse)}')
 
+                                print(f'\nr2 (mean - max)')
                                 r2 = r2_score(np.squeeze(Y.values), Y_pred)
                                 print(f'{np.mean(r2)} - {np.max(r2)}')       
                                 
