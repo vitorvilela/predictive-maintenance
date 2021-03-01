@@ -72,7 +72,7 @@ class DatasetAnalysis(Analysis):
                 elif based_on=='min':
                         dummy_error_array = np.abs(assets_last_cycle_array - self.dataset.assets_last_cycle_dict['min'])                                        
                 else:
-                        print(f'In get_precision(), based_on={based_on} is not available. Please use \'mean\' or \'min\'.')
+                        print(f'\nIn get_precision(), based_on={based_on} is not available. Please use \'mean\' or \'min\'.\n')
                         sys.exit(1)  
 
                 if stats=='mean':
@@ -80,7 +80,7 @@ class DatasetAnalysis(Analysis):
                 elif stats=='max':   
                         dummy_error = int(np.max(dummy_error_array))
                 else:
-                        print(f'In get_precision(), stats={stats} is not available. Please use \'mean\' or \'max\'.')
+                        print(f'\nIn get_precision(), stats={stats} is not available. Please use \'mean\' or \'max\'.\n')
                         sys.exit(1)          
 
                 return dummy_error
@@ -102,7 +102,7 @@ class DatasetAnalysis(Analysis):
                 elif based_on=='min':
                         dummy_percentage_error_array = np.abs(assets_last_cycle_array -  self.dataset.assets_last_cycle_dict['min']) / assets_last_cycle_array                                        
                 else:
-                        print(f'In get_precision(), based_on={based_on} is not available. Please use \'mean\' or \'min\'.')
+                        print(f'\nIn get_precision(), based_on={based_on} is not available. Please use \'mean\' or \'min\'.\n')
                         sys.exit(1)  
 
                 if stats=='mean':
@@ -110,7 +110,7 @@ class DatasetAnalysis(Analysis):
                 elif stats=='max':   
                         dummy_percentage_error = 100*np.max(dummy_percentage_error_array)
                 else:
-                        print(f'In get_precision(), stats={stats} is not available. Please use \'mean\' or \'max\'.')
+                        print(f'\nIn get_precision(), stats={stats} is not available. Please use \'mean\' or \'max\'.\n')
                         sys.exit(1)          
 
                 return dummy_percentage_error        
@@ -131,7 +131,7 @@ class DatasetAnalysis(Analysis):
                 plt.xlabel('cycle')
                 plt.ylabel(f'{feature_name}')
                 plt.tight_layout()
-                self.log.exp.log_image(f'{self.dataset.type}-features-charts', fig, image_name=f'{self.dataset.type}-{feature_name}-for-asset-{asset_id}-linechart')
+                self.log.exp.log_image(f'{self.dataset.type}-features-charts', fig, image_name=f'{feature_name}-for-asset-{asset_id}-linechart')
                 plt.close(fig)
                 
 
@@ -148,7 +148,7 @@ class DatasetAnalysis(Analysis):
                 plt.xlabel('asset')
                 plt.ylabel(f'{sensor_name}')
                 plt.tight_layout()
-                self.log.exp.log_image(f'{self.dataset.type}-features-charts', fig, image_name=f'{self.dataset.type}-failure-values-of-{sensor_name}-for-assets-linechart')
+                self.log.exp.log_image(f'{self.dataset.type}-features-charts', fig, image_name=f'failure-values-of-{sensor_name}-for-assets-linechart')
                 plt.close(fig)
 
 
@@ -192,27 +192,34 @@ class TransformedDatasetAnalysis(Analysis):
                         cbar.set_label(self.correlation_method, size=10)
                         cbar.ax.tick_params(labelsize=8) 
                         plt.tight_layout()
-                        self.log.exp.log_image(log_category, fig, image_name=f'{self.transformed_dataset.type}-correlationmatrix')
+                        self.log.exp.log_image(log_category, fig, image_name=f'correlationmatrix')
                         plt.close(fig)
-                else:
-                        print('on correlation_matrix')      
-                        sys.exit(1) 
+
+                else:                           
+                        pass
 
 
         def log_scatterchart(self, feature_name, log_category):
 
-                df = self.transformed_dataset.dataframe
+                if self.transformed_dataset.type=='train':
 
-                fig = plt.figure(figsize=(4., 3.), dpi=1200)
-                ax = fig.add_subplot(111)
+                        df = self.transformed_dataset.dataframe
 
-                for x, y, i in zip(df.loc[:, feature_name], df.loc[:, 'rul'], df['monitoring-cycle']):              
-                        ax.plot(x, y, 'o', color='g', alpha=0.2, markersize=2)
-                        ax.annotate(i, (x, y), size=1, color='k')            
-                   
-                plt.xlabel(feature_name, color='k', fontweight='normal', fontsize=8, fontstyle='italic')
-                plt.ylabel('rul', color='k', fontweight='normal', fontsize=8, fontstyle='italic', rotation='vertical')  
-                ax.tick_params(labelsize=6) 
-                plt.tight_layout()
-                self.log.exp.log_image(log_category, fig, image_name=f'{self.transformed_dataset.type}-{feature_name}-scatterchart')
-                plt.close(fig)
+                        fig = plt.figure(figsize=(4., 3.), dpi=1200)
+                        ax = fig.add_subplot(111)
+
+
+                        for x, y, i in zip(df.loc[:, feature_name], df.loc[:, 'rul'], df['monitoring-cycle']):              
+                                ax.plot(x, y, 'o', color='g', alpha=0.2, markersize=2)
+                                ax.annotate(i, (x, y), size=1, color='k')            
+                        
+                        plt.xlabel(feature_name, color='k', fontweight='normal', fontsize=8, fontstyle='italic')
+                        plt.ylabel('rul', color='k', fontweight='normal', fontsize=8, fontstyle='italic', rotation='vertical')  
+                        ax.tick_params(labelsize=6) 
+                        plt.tight_layout()
+                        self.log.exp.log_image(log_category, fig, image_name=f'{feature_name}-scatterchart')
+                        plt.close(fig)
+
+                else: 
+                        pass        
+                

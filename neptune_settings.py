@@ -13,19 +13,50 @@ class Args:
                 self.experiment_name = 'dev'
 
                 #
-                self.origin_cycle_period = 1
-                self.filter_window_size = 10
+                #self.origin_cycle_period = 1
+
+
+                ########
+
+                # DOE: factor 1
+                self.option_use_derivatives = True  #  False / True
+                print(f'\noption_use_derivatives: {self.option_use_derivatives}')
+                
+                self.option_min_monitoring_cycle_constant = True                
+                # DOE: factor 2
+                # Limited to 31 i.e.: (min cycle in all assets)@test - 2*filter_window_size > 0
+                self.min_monitoring_cycle_constant = 31  # 31 / 100
+                print(f'min_monitoring_cycle: {self.min_monitoring_cycle_constant}')
+
+                # DOE: factor 3 
+                # Limited to 15 i.e.: (min cycle in all assets)@test - 2*filter_window_size > 0                                
+                self.filter_window_size = 15  # 10 / 15
+                print(f'filter_window_size: {self.filter_window_size}')
+
+                self.option_test_dataset_cutoff = False
+                print(f'option_test_dataset_cutoff: {self.option_test_dataset_cutoff}')
+
+                self.chosen_model_name = 'AB'
+                self.output_filename='model-3-prediction.csv'
+                print(f'chosen_model_name: {self.chosen_model_name}')
+                print(f'output_filename: {self.output_filename}\n')
+
+                ########
+
+
                 self.monitoring_cycle_step = int(0.5*self.filter_window_size)
                 self.n_monitoring_cycles_per_asset = 10
+                self.coverage_restraint = 0.5
 
                 #
                 self.option_polynomial_features = True
-                self.polynomial_features_degree = 2   
+                self.polynomial_features_degree = 1   
                 self.option_standardize = True
 
                 #
-                self.model_scores = [('NEG-MAX', 'max_error'), ('NEG-MSE', 'neg_mean_squared_error'), ('R2', 'r2')]
-        
+                #self.model_scores = [('NEG-MAX', 'max_error'), ('NEG-MSE', 'neg_mean_squared_error'), ('R2', 'r2')]
+
+
 
 
 
