@@ -66,7 +66,7 @@ class Dataset:
                 try:
                         asset_dataframe = df.loc[(df['asset_id']==asset_id)]
                 except:
-                        print(f'In get_asset_dataframe(), there is not the column ({asset_id}) in the dataframe.')
+                        print(f'\nIn get_asset_dataframe(), there is not the column ({asset_id}) in the dataframe.\n')
                         sys.exit(1) 
 
                 return asset_dataframe
@@ -82,7 +82,7 @@ class Dataset:
                 try:
                         cycle_feature_array = df[['cycle', feature_name]].values
                 except:
-                        print(f'In get_cycle_feature_array_for_asset(), there is not the column ({feature_name}) in the dataframe.')
+                        print(f'\nIn get_cycle_feature_array_for_asset(), there is not the column ({feature_name}) in the dataframe.\n')
                         sys.exit(1) 
 
 
@@ -103,7 +103,7 @@ class Dataset:
                         settings_array = df.loc[df['cycle']==cycle][settings_list].values
                         sensors_array = df.loc[df['cycle']==cycle][sensors_list].values                        
                 except:
-                        print(f'In get_settings_and_sensors_for_asset(), there is not the columns ({asset_id}, {cycle}) in the dataset.')
+                        print(f'\nIn get_settings_and_sensors_for_asset(), there is not the columns ({asset_id}, {cycle}) in the dataset.\n')
                         sys.exit(1)
 
                 return (np.squeeze(settings_array), np.squeeze(sensors_array))
@@ -171,7 +171,7 @@ class Dataset:
                         try:        
                                 sensor_array = df[sensor_name].values
                         except:
-                                print(f'In get_sensors_last_value_for_assets(), there is not the column ({sensor_name}) in the dataframe.')
+                                print(f'\nIn get_sensors_last_value_for_assets(), there is not the column ({sensor_name}) in the dataframe.\n')
                                 sys.exit(1) 
 
                         sensor_last_values_list.append([asset, sensor_array[-1]])
@@ -204,8 +204,12 @@ class TransformedDataset:
 
                 self.selected_settings = selected_settings_sensors_tuple[0]
                 self.selected_sensors = selected_settings_sensors_tuple[1]
-                self.selected_sensors_time_derivative = ['ds{}dt'.format(s.split('sensor')[1]) for s in self.selected_sensors]
-                self.selected_features = self.selected_settings + self.selected_sensors + self.selected_sensors_time_derivative
+
+                if self.args.option_use_derivatives:
+                        self.selected_sensors_time_derivative = ['ds{}dt'.format(s.split('sensor')[1]) for s in self.selected_sensors]
+                        self.selected_features = self.selected_settings + self.selected_sensors + self.selected_sensors_time_derivative
+                else:
+                        self.selected_features = self.selected_settings + self.selected_sensors
 
                 # It is used both in the csv file and dataframe
                 self.dataset_header_dict = {'train': ['data-id', 'monitoring-cycle'] + self.selected_features + ['rul'],
@@ -226,7 +230,7 @@ class TransformedDataset:
                 try:
                         feature_array = self.dataframe[[feature_name]].values
                 except:
-                        print(f'In get_feature_array(), there is not the column ({feature_name}) in the dataframe.')
+                        print(f'\nIn get_feature_array(), there is not the column ({feature_name}) in the dataframe.\n')
                         sys.exit(1) 
 
                 return feature_array        
@@ -236,10 +240,14 @@ class TransformedDataset:
                 """
                 Info
                 """
-                
-                self.min_monitoring_cycle = self.dataset.assets_last_cycle_dict['min'] - self.args.filter_window_size
+                             
+                if not self.args.option_min_monitoring_cycle_constant:                
+                        self.min_monitoring_cycle = self.dataset.assets_last_cycle_dict['min'] - self.args.filter_window_size
+                else:
+                        self.min_monitoring_cycle = self.args.min_monitoring_cycle_constant
+
                 if self.min_monitoring_cycle - 2*self.args.filter_window_size < 1:
-                        print(f'In set_min_monitoring_cycle(), min_monitoring_cycle lesser than allowed value (1)')
+                        print(f'\nIn set_min_monitoring_cycle(), min_monitoring_cycle lesser than allowed value (1)\n')
                         sys.exit(1)
 
 
@@ -263,7 +271,7 @@ class TransformedDataset:
                 if pick_type=='random':                        
                         return randrange(self.min_monitoring_cycle, max_monitoring_cycle, self.args.monitoring_cycle_step)
                 else:
-                        print(f'In pick_monitoring_cycle(), the pick_type={pick_type} is not available. Please use \'random\'.')
+                        print(f'\nIn pick_monitoring_cycle(), the pick_type={pick_type} is not available. Please use \'random\'.\n')
                         sys.exit(1)                
                         
 
@@ -292,7 +300,7 @@ class TransformedDataset:
                 elif filter_type=='high':
                         filtered_signal = windowed_sensor_signal[-1]
                 else:
-                        print(f'In filter_windowed_sensor_signal(), the filter_type={filter_type} is not available. Please use \'mean\', \'low\' or \'high\'.')
+                        print(f'\nIn filter_windowed_sensor_signal(), the filter_type={filter_type} is not available. Please use \'mean\', \'low\' or \'high\'.\n')
                         sys.exit(1)
 
                 return filtered_signal
@@ -308,20 +316,26 @@ class TransformedDataset:
 
                 low_index = (current_monitoring_cycle - 2*self.args.filter_window_size + 1) - 1 
                 if low_index < 1: 
-                        print(f'low_index < 1')
+                        print(f'\nIn get_monitoring_sensor_and_derivative_values(), low_index < 1\n')
                         sys.exit(1)
                 mid_index = (current_monitoring_cycle - self.args.filter_window_size + 1) - 1 
                 high_index = current_monitoring_cycle - 1
 
                 
                 present_windowed_sensor_signal = sensor_array[mid_index:high_index]
-                past_windowed_sensor_signal = sensor_array[low_index:mid_index-1]
-
                 present_signal_value = self.filter_windowed_sensor_signal(present_windowed_sensor_signal)
-                past_signal_value = self.filter_windowed_sensor_signal(past_windowed_sensor_signal)
-                signal_time_derivative = self.get_signal_time_derivative(present_signal_value, past_signal_value)
 
-                return (present_signal_value, signal_time_derivative)
+                signal_time_derivative = 0.
+
+                if self.args.option_use_derivatives:
+                        past_windowed_sensor_signal = sensor_array[low_index:mid_index-1]                
+                        past_signal_value = self.filter_windowed_sensor_signal(past_windowed_sensor_signal)
+                        signal_time_derivative = self.get_signal_time_derivative(present_signal_value, past_signal_value)
+
+                        return (present_signal_value, signal_time_derivative)
+
+                else:
+                        return (present_signal_value, None)        
 
 
         def get_signal_time_derivative(self, present_signal_value, past_signal_value):
@@ -347,78 +361,112 @@ class TransformedDataset:
                 return monitoring_setting
 
 
-        def set_dataframe(self):
+        def get_n_monitoring_cycle_for_asset(self, asset):
                 """
                 Info
                 """
 
-                # The 0.5 factor is an approach to handle repeated monitoring_cycle in the random function
-                coverage_restraint = 0.5
+                # The restraint factor is an approach to handle repeated monitoring_cycle in the random function
+                coverage_restraint = self.args.coverage_restraint
 
-                data_id_rows = []
-                monitoring_cycle_rows = []
-                rul_rows = []
-                features_dict = {}
-                
-                transformed_dataframe_size = 0
-                current_monitoring_cycle = 0
-                data_id = 0
+                n_monitoring_cycles_for_asset = 0
 
-                # Loop over assets to compute transformed dataframe size
-                for asset in self.dataset.assets:
+                if self.dataset.type=='train':                           
 
-                        # TODO Create a function to this section of the code, which reapeates further
-                        n_monitoring_cycles_per_asset = self.args.n_monitoring_cycles_per_asset
+                        n_monitoring_cycles_for_asset = self.args.n_monitoring_cycles_per_asset
 
                         monitoring_cycle_range_for_asset = self.get_max_monitoring_cycle_for_asset(asset_id=asset) - self.min_monitoring_cycle
                         monitoring_cycle_resolution_for_asset = int(monitoring_cycle_range_for_asset / self.args.monitoring_cycle_step)
 
                         # If coverage is greater than a threshold near 1.0 (e.g., 0.5), it would mistakenly repeate data into the transformed dataset
-                        coverage_monitoring_cycle_space = n_monitoring_cycles_per_asset / monitoring_cycle_resolution_for_asset   
-                        print(f'asset {asset}: coverage_monitoring_cycle_space ({coverage_monitoring_cycle_space})')
-                  
+                        coverage_monitoring_cycle_space = n_monitoring_cycles_for_asset / monitoring_cycle_resolution_for_asset   
+                        #print(f'asset {asset}: coverage_monitoring_cycle_space ({coverage_monitoring_cycle_space})')
+                                
                         if coverage_monitoring_cycle_space > coverage_restraint:                                
-                                n_monitoring_cycles_per_asset = int(coverage_restraint*monitoring_cycle_resolution_for_asset) 
-                                coverage_monitoring_cycle_space = n_monitoring_cycles_per_asset / monitoring_cycle_resolution_for_asset   
-                                print(f'\tcorrected coverage_monitoring_cycle_space ({coverage_monitoring_cycle_space})')
+                                n_monitoring_cycles_for_asset = int(coverage_restraint*monitoring_cycle_resolution_for_asset) 
+                                coverage_monitoring_cycle_space = n_monitoring_cycles_for_asset / monitoring_cycle_resolution_for_asset   
+                                #print(f'\tcorrected coverage_monitoring_cycle_space ({coverage_monitoring_cycle_space})')
 
-                        transformed_dataframe_size += n_monitoring_cycles_per_asset
+                elif self.dataset.type=='test':
 
-                print(f'\ntransformed_dataframe_size: {transformed_dataframe_size}\n')        
+                        n_monitoring_cycles_for_asset = 1
+
+                else:
+                        print(f'\nIn create_dataframe(), the type={type} is not available. Please use \'train\' or \'test\'.\n')
+                        sys.exit(1)               
+
+                return n_monitoring_cycles_for_asset
+
+
+
+        def get_transformed_dataframe_size(self):
+                """
+                Info
+                """
+
+                transformed_dataframe_size = 0
+
+                for asset in self.dataset.assets:
+                        transformed_dataframe_size += self.get_n_monitoring_cycle_for_asset(asset)
+
+                return transformed_dataframe_size
+
+
+
+        def set_dataframe(self):
+                """
+                Info
+                """                
+
+                data_id_rows = []
+                monitoring_cycle_rows = []
+                rul_rows = []
+                features_dict = {}
+                                
+                current_monitoring_cycle = 0
+                data_id = 0
 
 
                 if self.dataset.type=='train':
+
+                        transformed_dataframe_size = self.get_transformed_dataframe_size()
+                        #print(f'\ntransformed_dataframe_size: {transformed_dataframe_size}\n')
+                        
                         for selected_feature in self.selected_features:                        
                                 features_dict[selected_feature] = [1.e10]*transformed_dataframe_size   
+
                 elif self.dataset.type=='test':
+
                         for selected_feature in self.selected_features:                        
                                 features_dict[selected_feature] = [1.e10]*self.dataset.assets
+
                 else:
-                        print(f'In create_dataframe(), the type={type} is not available. Please use \'train\' or \'test\'.')
+                        print(f'\nIn create_dataframe(), the type={type} is not available. Please use \'train\' or \'test\'.\n')
                         sys.exit(1)
 
 
                 # Loop over assets to create dataframe
                 for asset in self.dataset.assets:
 
-                        n_monitoring_cycles_per_asset = self.args.n_monitoring_cycles_per_asset
-                        monitoring_cycle_range_for_asset = self.get_max_monitoring_cycle_for_asset(asset_id=asset) - self.min_monitoring_cycle
-                        monitoring_cycle_resolution_for_asset = int(monitoring_cycle_range_for_asset / self.args.monitoring_cycle_step)                        
-                        coverage_monitoring_cycle_space = n_monitoring_cycles_per_asset / monitoring_cycle_resolution_for_asset 
-                        if coverage_monitoring_cycle_space > coverage_restraint:                                
-                                n_monitoring_cycles_per_asset = int(coverage_restraint*monitoring_cycle_resolution_for_asset) 
+                                  
+                        n_monitoring_cycles_for_asset = self.get_n_monitoring_cycle_for_asset(asset)
                         
                         # Loop over monitoring cycles
-                        for _ in range(n_monitoring_cycles_per_asset):
+                        for _ in range(n_monitoring_cycles_for_asset):
                                
                                 if self.dataset.type=='train':
+
                                         current_monitoring_cycle = self.pick_monitoring_cycle(asset_id=asset, pick_type='random')
                                         rul = self.get_remaining_useful_life_value(asset_id=asset, current_monitoring_cycle=current_monitoring_cycle)
                                         rul_rows.append(int(rul))
-                                elif self.dataset.type=='test':        
+                                
+                                elif self.dataset.type=='test':  
+
                                         current_monitoring_cycle = self.get_max_monitoring_cycle_for_asset(asset_id=asset)
+                                
                                 else:
-                                        print(f'In create_dataframe(), the type={type} is not available. Please use \'train\' or \'test\'.')
+
+                                        print(f'\nIn create_dataframe(), the type={type} is not available. Please use \'train\' or \'test\'.\n')
                                         sys.exit(1)   
 
                                 monitoring_cycle_rows.append(int(current_monitoring_cycle))                                     
@@ -429,10 +477,16 @@ class TransformedDataset:
                                         features_dict[setting][data_id] = s
                                                                         
                                 # loop sensors
-                                for sensor, sensor_time_derivative in zip(self.selected_sensors, self.selected_sensors_time_derivative):
-                                        s, dsdt = self.get_monitoring_sensor_and_derivative_values(asset_id=asset, sensor_name=sensor, current_monitoring_cycle=current_monitoring_cycle)
-                                        features_dict[sensor][data_id] = s
-                                        features_dict[sensor_time_derivative][data_id] = dsdt
+                                if self.args.option_use_derivatives:
+                                        for sensor, sensor_time_derivative in zip(self.selected_sensors, self.selected_sensors_time_derivative):
+                                                s, dsdt = self.get_monitoring_sensor_and_derivative_values(asset_id=asset, sensor_name=sensor, current_monitoring_cycle=current_monitoring_cycle)
+                                                features_dict[sensor][data_id] = s
+                                                features_dict[sensor_time_derivative][data_id] = dsdt
+                                else:
+                                        for sensor in self.selected_sensors:
+                                                s, _ = self.get_monitoring_sensor_and_derivative_values(asset_id=asset, sensor_name=sensor, current_monitoring_cycle=current_monitoring_cycle)
+                                                features_dict[sensor][data_id] = s
+
 
                                 data_id += 1
                                 data_id_rows.append(int(data_id))
@@ -441,15 +495,17 @@ class TransformedDataset:
                                 if self.dataset.type=='test': 
                                         break        
 
+
                 dataframe_dict = {'data-id': data_id_rows, 'monitoring-cycle': monitoring_cycle_rows}
 
                 if self.dataset.type=='train':
-                        dataframe_dict['rul'] = rul_rows                
+                        dataframe_dict['rul'] = rul_rows  
                 elif self.dataset.type=='test':
-                        pass                                
+                        pass     
                 else:
-                        print(f'In create_dataframe(), the type={type} is not available. Please use \'train\' or \'test\'.')
+                        print(f'\nIn create_dataframe(), the type={type} is not available. Please use \'train\' or \'test\'.\n')
                         sys.exit(1)   
+
 
                 for feature in self.selected_features:
                         dataframe_dict[feature] = features_dict[feature]

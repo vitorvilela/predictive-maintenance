@@ -22,6 +22,8 @@ from sklearn.ensemble import AdaBoostRegressor
 from sklearn.metrics import mean_squared_error
 from sklearn.metrics import r2_score
 
+from sklearn.model_selection import train_test_split
+
 from joblib import dump, load
 
 
@@ -43,7 +45,11 @@ class DataPreprocessPipeline:
                 else:
                         self.targets_name = None      
 
-                self.numeric_features_name = ['monitoring-cycle'] + self.transformed_dataset.selected_settings + self.transformed_dataset.selected_sensors + self.transformed_dataset.selected_sensors_time_derivative
+                if self.args.option_use_derivatives:
+                        self.numeric_features_name = ['monitoring-cycle'] + self.transformed_dataset.selected_settings + self.transformed_dataset.selected_sensors + self.transformed_dataset.selected_sensors_time_derivative
+                else: 
+                        self.numeric_features_name = ['monitoring-cycle'] + self.transformed_dataset.selected_settings + self.transformed_dataset.selected_sensors
+                
                 self.features_name = self.numeric_features_name
                                 
                 self.set_targets_features_array()
@@ -54,8 +60,13 @@ class DataPreprocessPipeline:
                 Returns: a tuple
                 """
 
-                self.X = self.transformed_dataset.dataframe[self.numeric_features_name]
-                self.Y = self.transformed_dataset.dataframe[self.targets_name]
+                self.train_val_split_seed = 1
+                self.val_ratio = 0.3
+
+                x = self.transformed_dataset.dataframe[self.numeric_features_name]
+                y = self.transformed_dataset.dataframe[self.targets_name]     
+
+                self.x_train, self.x_val, self.y_train, self.y_val = train_test_split(x, y, test_size=self.val_ratio, random_state=self.train_val_split_seed) 
 
 
         def set_polynomial_features(self, degree): 
@@ -78,7 +89,7 @@ class DataPreprocessPipeline:
                 elif self.args.option_polynomial_features==False and self.args.option_standardize: 
                         self.numeric_pipeline = Pipeline(steps=[ ('Scaler', StandardScaler()) ])  
                 else:
-                        print('On get_pipeline')
+                        print('\nOn get_pipeline(), it is not possible to create a data preprocess pipeline without at least option_polynomial_features or option_standardize set True.')
                         sys.exit(1)
 
                 self.pipeline = self.numeric_pipeline
@@ -102,32 +113,14 @@ class ModelingPipeline:
                 Info
                 """
 
-                self.selected_models = [('DUMMY', DummyRegressor()), ('LR', LinearRegression()), ('LASSO', Lasso()), ('EN', ElasticNet()), ('KNN', KNeighborsRegressor(n_neighbors=5)), ('CART', DecisionTreeRegressor()), ('SVR', SVR()), ('BSN', BayesianRidge(compute_score=True)), ('AB', AdaBoostRegressor()), ('GB', GradientBoostingRegressor()), ('RF', RandomForestRegressor()), ('ET', ExtraTreesRegressor())]
+                #self.selected_models = [('DUMMY', DummyRegressor()), ('LR', LinearRegression()), ('LASSO', Lasso()), ('EN', ElasticNet()), ('KNN', KNeighborsRegressor(n_neighbors=5)), ('CART', DecisionTreeRegressor()), ('SVR', SVR()), ('BSN', BayesianRidge(compute_score=True)), ('AB', AdaBoostRegressor()), ('GB', GradientBoostingRegressor()), ('RF', RandomForestRegressor()), ('ET', ExtraTreesRegressor())]
+                self.selected_models = [('DUMMY', DummyRegressor()), ('AB', AdaBoostRegressor()), ('GB', GradientBoostingRegressor()), ('RF', RandomForestRegressor()), ('ET', ExtraTreesRegressor())]
 
-                self.models_pipeline = []
+                self.pipeline = []
 
                 for model_name, model in self.selected_models:
-                        self.models_pipeline.append((model_name, Pipeline([('data_pipeline', self.data_preprocess_pipeline.pipeline), (model_name, model)])))
-                
-                # # Simpler models
-                # self.model_pipeline.append(('DUMMY', Pipeline([('data_preprocess_pipeline', self.data_preprocessing_pipeline.data_pipeline), ('DUMMY', DummyRegressor())])))
-                # self.model_pipeline.append(('LR', Pipeline([('preprocess_pipeline', self.data_preprocessing_pipeline.data_pipeline), ('LR', LinearRegression())])))
-                # self.model_pipeline.append(('LASSO', Pipeline([('preprocess_pipeline', self.data_preprocessing_pipeline.data_pipeline), ('LASSO', Lasso())])))
-                # self.model_pipeline.append(('EN', Pipeline([('preprocess_pipeline', self.data_preprocessing_pipeline.data_pipeline), ('EN', ElasticNet())])))
-                # self.model_pipeline.append(('KNN', Pipeline([('preprocess_pipeline', self.data_preprocessing_pipeline.data_pipeline), ('KNN', KNeighborsRegressor())])))
-                # self.model_pipeline.append(('CART', Pipeline([('preprocess_pipeline', self.data_preprocessing_pipeline.data_pipeline), ('CART', DecisionTreeRegressor())])))
-                # self.model_pipeline.append(('SVR', Pipeline([('preprocess_pipeline', self.data_preprocessing_pipeline.data_pipeline), ('SVR', SVR())])))
-                # self.model_pipeline.append(('BSN', Pipeline([('preprocess_pipeline', self.data_preprocessing_pipeline.data_pipeline), ('BSN', BayesianRidge(compute_score=True))])))
-
-                # # Boosting models
-                # self.model_pipeline.append(('AB', Pipeline([('preprocess_pipeline', self.data_preprocessing_pipeline.data_pipeline), ('AB', AdaBoostRegressor())])))
-                # self.model_pipeline.append(('GBM', Pipeline([('preprocess_pipeline', self.data_preprocessing_pipeline.data_pipeline), ('GBM', GradientBoostingRegressor())])))
-      
-                # # Bagging models
-                # self.model_pipeline.append(('RF', Pipeline([('preprocess_pipeline', self.data_preprocessing_pipeline.data_pipeline), ('RF', RandomForestRegressor())])))
-                # self.model_pipeline.append(('ET', Pipeline([('preprocess_pipeline', self.data_preprocessing_pipeline.data_pipeline), ('ET', ExtraTreesRegressor())])))
-
-
+                        self.pipeline.append((model_name, Pipeline([('data_pipeline', self.data_preprocess_pipeline.pipeline), (model_name, model)])))
+                      
 
 
 class Model:
@@ -150,8 +143,12 @@ class Model:
                 Info
                 """
 
-                X = self.data_preprocess_pipeline.X
-                Y = self.data_preprocess_pipeline.Y
+                self.pipeline = []
+
+                x_train = self.data_preprocess_pipeline.x_train
+                x_val = self.data_preprocess_pipeline.x_val
+                y_train = self.data_preprocess_pipeline.y_train
+                y_val = self.data_preprocess_pipeline.y_val
 
                 for degree in range(1, self.args.polynomial_features_degree+1):
 
@@ -161,34 +158,50 @@ class Model:
                         self.data_preprocess_pipeline.set_pipeline()
                         self.modeling_pipeline.set_pipeline()
 
-                        for model_name, pipe in self.modeling_pipeline.models_pipeline:   
+                        for model_name, pipe in self.modeling_pipeline.pipeline:   
 
-                                pipe.fit(X, Y)
+                                self.pipeline.append(pipe.fit(x_train, y_train))
                                 
-                                Y_pred = pipe.predict(X)
+                                y_train_pred = pipe.predict(x_train)
+                                y_val_pred = pipe.predict(x_val)
+                                
 
-                                # Temporary model scores 
                                 print(f'\nModel: {model_name}')
                                 
-                                print(f'\nape (mean - max)')
-                                ape = np.abs(100*(np.squeeze(Y.values)-Y_pred)/np.squeeze(Y.values))
+                                # print('pipe.score train subset')
+                                # print(pipe.score(x_train, y_train))
+                                # print('pipe.score val subset')
+                                # print(pipe.score(x_val, y_val))                               
+
+                                print(f'\nape (mean - max) | train / val')
+                                ape = np.abs(100*(np.squeeze(y_train.values)-y_train_pred)/np.squeeze(y_train.values))
+                                print(f'{np.mean(ape)} - {np.max(ape)}')
+                                ape = np.abs(100*(np.squeeze(y_val.values)-y_val_pred)/np.squeeze(y_val.values))
                                 print(f'{np.mean(ape)} - {np.max(ape)}')
                                 
-                                print(f'\nae (mean - max)')
-                                ae = np.abs(np.squeeze(Y.values)-Y_pred)
+                                print(f'\nae (mean - max) | train / val')
+                                ae = np.abs(np.squeeze(y_train.values)-y_train_pred)
+                                print(f'{np.mean(ae)} - {np.max(ae)}')
+                                ae = np.abs(np.squeeze(y_val.values)-y_val_pred)
                                 print(f'{np.mean(ae)} - {np.max(ae)}')
 
-                                print(f'\nmse (mean - max)')
-                                mse = mean_squared_error(np.squeeze(Y.values), Y_pred)
-                                print(f'{np.mean(mse)} - {np.max(mse)}')
+                                print(f'\nmse (mean - max) | train / val')
+                                mse_train = mean_squared_error(np.squeeze(y_train.values), y_train_pred)
+                                print(f'{np.mean(mse_train)} - {np.max(mse_train)}')
+                                mse_val = mean_squared_error(np.squeeze(y_val.values), y_val_pred)
+                                print(f'{np.mean(mse_val)} - {np.max(mse_val)}')
 
-                                print(f'\nrmse (mean - max)')
-                                rmse = np.sqrt(mse)
+                                print(f'\nrmse (mean - max) | train / val')
+                                rmse = np.sqrt(mse_train)
+                                print(f'{np.mean(rmse)} - {np.max(rmse)}')
+                                rmse = np.sqrt(mse_val)
                                 print(f'{np.mean(rmse)} - {np.max(rmse)}')
 
-                                print(f'\nr2 (mean - max)')
-                                r2 = r2_score(np.squeeze(Y.values), Y_pred)
+                                print(f'\nr2 (mean - max) | train / val')
+                                r2 = r2_score(np.squeeze(y_train.values), y_train_pred)
                                 print(f'{np.mean(r2)} - {np.max(r2)}')       
+                                r2 = r2_score(np.squeeze(y_val.values), y_val_pred)
+                                print(f'{np.mean(r2)} - {np.max(r2)}') 
                                 
                                 print('\n')
 
