@@ -157,9 +157,12 @@ def main(args):
         train_model = modeling.Model(log=log, modeling_pipeline=train_modeling_pipeline)
 
 
-
-
         # Predicting
+
+        prediction = modeling.PredictionPipeline(log=log, transformed_dataset=test_transformed_dataset, model=train_model, chosen_model_name=args.chosen_model_name, output_filename=args.output_filename)
+
+
+        
 
 
 
