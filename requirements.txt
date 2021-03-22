@@ -36,7 +36,6 @@ oauthlib==3.1.0
 opt-einsum==3.3.0
 packaging==20.9
 pandas==1.2.2
-Pillow==8.1.0
 pluggy==0.13.1
 protobuf==3.15.1
 psutil==5.8.0
