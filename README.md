@@ -1,5 +1,4 @@
-# suzano
-Predictive Maintenance
+# Predictive Maintenance
 
 Remaining Useful Life (RUL) Prediction
 
